@@ -20,6 +20,29 @@ if use_proxy.lower() == "y":
     proxy_list = input("Enter the list of proxies (separated by commas): ").split(",")
     proxy_index = 0
 
+# Get account details from user
+use_account = input("Do you want to post comments from an account? (y/n): ")
+session = requests.Session()
+if use_account.lower() == "y":
+    username = input("Enter your username: ")
+    password = input("Enter your password: ")
+    
+    # Log in to the account
+    login_url = f"{website_link}/wp-login.php"
+    login_data = {
+        "log": username,
+        "pwd": password,
+        "wp-submit": "Log In",
+        "redirect_to": f"{website_link}/wp-admin/",
+        "testcookie": "1"
+    }
+    response = session.post(login_url, data=login_data)
+    if response.status_code == 200:
+        print("Logged in successfully.")
+    else:
+        print("Failed to log in. Continuing without account.")
+        use_account = "n"
+
 # Set the URL of your WordPress site's API
 api_url = f"{website_link}/wp-json/wp/v2/comments"
 
@@ -52,13 +75,16 @@ for post_id in range(start_post_id, end_post_id + 1):
             proxy = { "http": proxy_list[proxy_index], "https": proxy_list[proxy_index] }
             
             # Send the API request with the current proxy
-            response = requests.post(api_url, headers=headers, json=comment_data, proxies=proxy)
+            response = session.post(api_url, headers=headers, json=comment_data, proxies=proxy)
             
             # Move to the next proxy after every 10 comments
             if (i + 1) % 10 == 0:
                 proxy_index = (proxy_index + 1) % len(proxy_list)
+        elif use_account.lower() == "y":
+            # Send the API request with the logged-in session
+            response = session.post(api_url, headers=headers, json=comment_data)
         else:
-            # Send the API request without a proxy
+            # Send the API request without a proxy or account
             response = requests.post(api_url, headers=headers, json=comment_data)
         
         if response.status_code == 201:
